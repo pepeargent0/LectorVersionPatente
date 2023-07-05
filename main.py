@@ -83,12 +83,13 @@ while True:
     else:
         # Descomenten esto para camara IP Esto es por si el stream deja de transmitir algún
         # frame o se tarda más de lo normal. En este caso simplemente volvemos a intentar leer el frame.
-        #vid = cv2.VideoCapture(video_path)
-        #continue
-        break
+        vid = cv2.VideoCapture(video_path)
+        continue
+        #break
     directory_storage = get_directory_config()
     for predict in alpr.show_predicts(frame):
-        # predict.patente = 'dss164'
+        # predict.patente = 'dss164'cc
+        print('prediccion: ', predict.patente)
         habilitado = 1
         aproximado= None
         patente = True
@@ -104,7 +105,6 @@ while True:
         if aproximado['distancia_jaro'] < 0.70:
             print('patente no habilitada', predict.patente)
         else:
-            print(aproximado)
             transport_vehiculos = session.query(TransporteVehiculos).filter(TransporteVehiculos.id==aproximado['id']).first()
             if transport_vehiculos:
                 empresa = session.query(Empresas).filter(Empresas.id==transport_vehiculos.empresaId).first()
@@ -120,6 +120,7 @@ while True:
                 )
                 session.add(egreso_veiculo)
                 session.commit()
+                print('se incerta: ', aproximado['patente'])
                 transporte = session.query(TransporteVehiculos).filter(
                     TransporteVehiculos.patente == aproximado['patente']).first()
                 transporte.habilitado = False
