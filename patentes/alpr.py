@@ -55,7 +55,7 @@ class ALPR:
             plate, probs = self.ocr.predict_ocr(x1, y1, x2, y2, frame)
             avg = np.mean(probs)
             load_dotenv()
-            time_plate_no_repite = os.getenv('TIMER')
+            time_plate_no_repite = int(os.getenv('TIMER'))
             if avg > self.ocr.confianza_avg and self.ocr.none_low(probs, thresh=self.ocr.none_low_thresh):
                 plate = ''.join(plate).replace('_', '')
                 current_time = timer()
