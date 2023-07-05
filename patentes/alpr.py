@@ -55,8 +55,9 @@ class ALPR:
             if avg > self.ocr.confianza_avg and self.ocr.none_low(probs, thresh=self.ocr.none_low_thresh):
                 plate = ''.join(plate).replace('_', '')
                 current_time = timer()
-
-                if plate not in self.processed_predictions or (current_time - self.processed_predictions[plate] > 3600):
+                #time_plate_no_repite = 3600
+                time_plate_no_repite = 10
+                if plate not in self.processed_predictions or (current_time - self.processed_predictions[plate] > time_plate_no_repite):
                     self.processed_predictions[plate] = current_time
                     yield Predict(patente=plate, porcentaje=avg * 100, posicion=(x1, y1, x2, y2))
 

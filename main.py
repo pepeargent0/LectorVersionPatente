@@ -1,5 +1,4 @@
 import time
-import datetime
 from time import sleep
 import jaro
 from datetime import datetime
@@ -10,19 +9,15 @@ from database.database import get_session, init_sin_tunel_database
 from database.empresas import Empresas
 from database.transporte_egreso import TransporteEgreso
 from database.transporte_vehiculos import TransporteVehiculos
-#from database.database import init_database, get_session
-#from database.empresas import Empresas
-#from database.transporte_egreso import TransporteEgreso
-#from database.transporte_vehiculos import TransporteVehiculos
 from patentes.alpr import ALPR
 import paho.mqtt.client as mqtt
 import logging
 import cv2
-
+import  os
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 logging.basicConfig()
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
-
 
 db_url = get_database_url()
 init_sin_tunel_database(db_url)
@@ -34,6 +29,7 @@ broker = get_mqtt_config().broker
 topico_semaforo = get_mqtt_config().semaforo
 topico_camara = get_mqtt_config().camara
 topico_barrera = get_mqtt_config().barrera
+
 
 def on_connect(client, userdata, flags, rc):
     client.publish(topico_semaforo, "#out1-off")
@@ -48,6 +44,7 @@ def on_connect(client, userdata, flags, rc):
     client.publish(topico_camara, "#video-simple")
     client.publish(topico_semaforo, "#out1-off")
 
+
 def zoom_image(image, scale_factor):
     height, width = image.shape[:2]
     new_height = int(height * scale_factor)
@@ -56,12 +53,10 @@ def zoom_image(image, scale_factor):
     return resized_image
 
 
-
-
 alpr = ALPR()
 configure = get_model_config()
-#video_path = '/home/pepe/Descargas/test11.mp4'
-video_path = RTSPClient().get_connection()
+video_path = '/home/pepe/Descargas/testl.mp4'
+# video_path = RTSPClient().get_connection()
 
 cap = cv2.VideoCapture(video_path)
 is_img = cv2.haveImageReader(video_path)
@@ -83,15 +78,19 @@ while True:
     else:
         # Descomenten esto para camara IP Esto es por si el stream deja de transmitir algún
         # frame o se tarda más de lo normal. En este caso simplemente volvemos a intentar leer el frame.
-        vid = cv2.VideoCapture(video_path)
-        continue
-        #break
+        #vid = cv2.VideoCapture(video_path)
+        #continue
+        break
     directory_storage = get_directory_config()
     for predict in alpr.show_predicts(frame):
         # predict.patente = 'dss164'cc
         print('prediccion: ', predict.patente)
         habilitado = 1
-        aproximado= None
+        aproximado = {
+            'id': '',
+            'patente': '',
+            'distancia_jaro': -1
+        }
         patente = True
         resultados = session.query(TransporteVehiculos).filter(TransporteVehiculos.habilitado == habilitado).all()
         for resultado in resultados:
@@ -105,9 +104,10 @@ while True:
         if aproximado['distancia_jaro'] < 0.70:
             print('patente no habilitada', predict.patente)
         else:
-            transport_vehiculos = session.query(TransporteVehiculos).filter(TransporteVehiculos.id==aproximado['id']).first()
+            transport_vehiculos = session.query(TransporteVehiculos).filter(
+                TransporteVehiculos.id == aproximado['id']).first()
             if transport_vehiculos:
-                empresa = session.query(Empresas).filter(Empresas.id==transport_vehiculos.empresaId).first()
+                empresa = session.query(Empresas).filter(Empresas.id == transport_vehiculos.empresaId).first()
                 egreso_veiculo = TransporteEgreso(
                     empresa_id=empresa.id,
                     empresa=empresa.razonSocial,
@@ -120,7 +120,7 @@ while True:
                 )
                 session.add(egreso_veiculo)
                 session.commit()
-                print('se incerta: ', aproximado['patente'])
+                print('se inserta: ', aproximado['patente'])
                 transporte = session.query(TransporteVehiculos).filter(
                     TransporteVehiculos.patente == aproximado['patente']).first()
                 transporte.habilitado = False
