@@ -55,8 +55,8 @@ def zoom_image(image, scale_factor):
 
 alpr = ALPR()
 configure = get_model_config()
-video_path = '/home/pepe/Descargas/testl.mp4'
-# video_path = RTSPClient().get_connection()
+#video_path = '/home/pepe/Descargas/testl.mp4'
+video_path = RTSPClient().get_connection()
 
 cap = cv2.VideoCapture(video_path)
 is_img = cv2.haveImageReader(video_path)
@@ -78,9 +78,9 @@ while True:
     else:
         # Descomenten esto para camara IP Esto es por si el stream deja de transmitir algún
         # frame o se tarda más de lo normal. En este caso simplemente volvemos a intentar leer el frame.
-        #vid = cv2.VideoCapture(video_path)
-        #continue
-        break
+        vid = cv2.VideoCapture(video_path)
+        continue
+        #break
     directory_storage = get_directory_config()
     for predict in alpr.show_predicts(frame):
         # predict.patente = 'dss164'cc
