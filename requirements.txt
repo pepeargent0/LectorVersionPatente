@@ -1,0 +1,15 @@
+python-dotenv
+pydantic
+paho-mqtt
+opencv-python
+matplotlib
+pandas
+numpy
+tensorflow
+keras2onnx
+numpy
+sqlalchemy
+mysql-connector-python
+sshtunnel
+pymysql
+jaro-winkler
