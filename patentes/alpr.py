@@ -1,4 +1,7 @@
+import os
 from timeit import default_timer as timer
+from dotenv import load_dotenv
+
 import cv2
 import numpy as np
 from pydantic import BaseModel
@@ -51,12 +54,11 @@ class ALPR:
             cv2.rectangle(frame, (x1, y1), (x2, y2), (36, 255, 12), 2)
             plate, probs = self.ocr.predict_ocr(x1, y1, x2, y2, frame)
             avg = np.mean(probs)
-
+            load_dotenv()
+            time_plate_no_repite = os.getenv('TIMER')
             if avg > self.ocr.confianza_avg and self.ocr.none_low(probs, thresh=self.ocr.none_low_thresh):
                 plate = ''.join(plate).replace('_', '')
                 current_time = timer()
-                #time_plate_no_repite = 3600
-                time_plate_no_repite = 10
                 if plate not in self.processed_predictions or (current_time - self.processed_predictions[plate] > time_plate_no_repite):
                     self.processed_predictions[plate] = current_time
                     yield Predict(patente=plate, porcentaje=avg * 100, posicion=(x1, y1, x2, y2))
