@@ -83,7 +83,7 @@ def process_frame(frame):
                     'distancia_jaro': max_distancia_jaro
                 }
     if aproximado['distancia_jaro'] < 0.70:
-        print('Patente no habilitada', predict.patente)
+        print('Patente No Habilitada: ', predict.patente)
     else:
         transport_vehiculos = session.query(TransporteVehiculos).filter(
             TransporteVehiculos.id == aproximado['id']).first()
@@ -101,7 +101,7 @@ def process_frame(frame):
             )
             session.add(egreso_veiculo)
             session.commit()
-            print('se inserta: ', aproximado['patente'])
+            print('Patente Insertado: ', aproximado['patente'], ' Patente Detectada: ', predict.patente)
             transporte = session.query(TransporteVehiculos).filter(
                 TransporteVehiculos.patente == aproximado['patente']).first()
             transporte.habilitado = False
@@ -132,7 +132,7 @@ def capture_frames():
 
 alpr = ALPR()
 configure = get_model_config()
-video_path = '/home/pepe/Descargas/testl.mp4'
+video_path = '/home/pepe/Descargas/test11.mp4'
 # video_path = RTSPClient().get_connection()
 
 logger.critical(f'Se va analizar la fuente: {video_path}')
