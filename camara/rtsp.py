@@ -23,5 +23,5 @@ class RTSPClient:
         connection = 'rtsp://'
         if self.username != '' and self.password != '':
             connection += self.username + ':' + self.password + '@'
-        connection += self.host + ':' + str(self.port)
+        connection += self.host + ':' + str(self.port)+'?tcp'
         return connection

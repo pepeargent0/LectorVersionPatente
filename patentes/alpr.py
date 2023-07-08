@@ -49,13 +49,13 @@ class ALPR:
         yolo_out = self.detector.predict(input_img)
         bboxes = self.detector.procesar_salida_yolo(yolo_out)
         iter_coords = self.detector.yield_coords(frame, bboxes)
-
         for x1, y1, x2, y2, _ in iter_coords:
             cv2.rectangle(frame, (x1, y1), (x2, y2), (36, 255, 12), 2)
             plate, probs = self.ocr.predict_ocr(x1, y1, x2, y2, frame)
             avg = np.mean(probs)
             load_dotenv()
             time_plate_no_repite = int(os.getenv('TIMER'))
+            # print(plate)
             if avg > self.ocr.confianza_avg and self.ocr.none_low(probs, thresh=self.ocr.none_low_thresh):
                 plate = ''.join(plate).replace('_', '')
                 current_time = timer()

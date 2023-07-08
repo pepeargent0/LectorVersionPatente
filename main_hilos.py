@@ -52,6 +52,10 @@ def on_connect(client, userdata, flags, rc):
 def zoom_image(image, scale_factor):
     return cv2.resize(image, None, fx=scale_factor, fy=scale_factor)
 
+def resize_frame(frame, target_size):
+    # Redimensionar la imagen al tamaño objetivo
+    resized_frame = cv2.resize(frame, target_size)
+    return resized_frame
 
 def recortar_patente(frame, x1, y1, x2, y2):
     return frame[y1:y2, x1:x2]
@@ -126,14 +130,16 @@ def capture_frames():
             if not return_value:
                 break
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            process_frame(frame)
+            resized_frame = resize_frame(frame, (608, 608))  # Adaptar el tamaño al requerido por YOLO
+            process_frame(resized_frame)
     finally:
         cap.release()
+        cv2.destroyAllWindows()
 
 
 alpr = ALPR()
 configure = get_model_config()
-video_path = '/home/pepe/Descargas/test11.mp4'
+#video_path = '/home/pepe/Descargas/test11.mp4'
 video_path = RTSPClient().get_connection()
 
 logger.critical(f'Se va analizar la fuente: {video_path}')
