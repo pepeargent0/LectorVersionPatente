@@ -4,6 +4,8 @@ from datetime import datetime
 import threading
 import cv2
 import os
+
+import numpy as np
 import paho.mqtt.client as mqtt
 import logging
 
@@ -63,10 +65,11 @@ def recortar_patente(frame, x1, y1, x2, y2):
 
 def process_frame(frame):
     directory_storage = get_directory_config()
+
     predicts = list(alpr.show_predicts(frame))
+
     if not predicts:
         return
-
     habilitado = 1
     resultados = session.query(TransporteVehiculos).filter(TransporteVehiculos.habilitado == habilitado).all()
     session.commit()
@@ -122,20 +125,30 @@ def process_frame(frame):
             cv2.imwrite(imagen_path, frame)
 
 
+
 def capture_frames():
     cap = cv2.VideoCapture(video_path)
+    frame_count = 0
     try:
         while cap.isOpened():
             return_value, frame = cap.read()
             if not return_value:
                 break
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            resized_frame = resize_frame(frame, (608, 608))  # Adaptar el tamaño al requerido por YOLO
-            process_frame(resized_frame)
+
+            # Convertir el frame a un arreglo de NumPy
+            frame_np = np.array(frame)
+
+            # Redimensionar el frame
+            target_size = (848, 480)
+            resized_frame = cv2.resize(frame_np, target_size)
+            # Procesar el frame redimensionado
+            process_frame(frame)
+
+            frame_count += 1
     finally:
         cap.release()
         cv2.destroyAllWindows()
-
 
 alpr = ALPR()
 configure = get_model_config()

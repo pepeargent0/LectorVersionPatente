@@ -46,12 +46,18 @@ class ALPR:
 
     def show_predicts(self, frame: np.ndarray):
         input_img = self.detector.preprocess(frame)
+        # print(input_img)
         yolo_out = self.detector.predict(input_img)
         bboxes = self.detector.procesar_salida_yolo(yolo_out)
         iter_coords = self.detector.yield_coords(frame, bboxes)
+
+        # print(iter_coords)
         for x1, y1, x2, y2, _ in iter_coords:
+            #print(x1, y1, x2, y2)
             cv2.rectangle(frame, (x1, y1), (x2, y2), (36, 255, 12), 2)
+            #print(x1, y1, x2, y2, frame)
             plate, probs = self.ocr.predict_ocr(x1, y1, x2, y2, frame)
+            #print(plate,probs)
             avg = np.mean(probs)
             load_dotenv()
             time_plate_no_repite = int(os.getenv('TIMER'))
