@@ -7,6 +7,7 @@ import os
 import paho.mqtt.client as mqtt
 import logging
 
+from camara.rtsp import RTSPClient
 from config.config import get_model_config, get_directory_config, get_database_url, get_mqtt_config
 from database.database import get_session, init_sin_tunel_database
 from database.empresas import Empresas
@@ -133,7 +134,7 @@ def capture_frames():
 alpr = ALPR()
 configure = get_model_config()
 video_path = '/home/pepe/Descargas/test11.mp4'
-# video_path = RTSPClient().get_connection()
+video_path = RTSPClient().get_connection()
 
 logger.critical(f'Se va analizar la fuente: {video_path}')
 intervalo_reconocimiento = configure.frecuencia_inferencia
