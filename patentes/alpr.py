@@ -57,17 +57,12 @@ class ALPR:
             cv2.rectangle(frame, (x1, y1), (x2, y2), (36, 255, 12), 2)
             #print(x1, y1, x2, y2, frame)
             plate, probs = self.ocr.predict_ocr(x1, y1, x2, y2, frame)
-            #print(plate,probs)
             avg = np.mean(probs)
             load_dotenv()
-            time_plate_no_repite = int(os.getenv('TIMER'))
-            # print(plate)
-            if avg > self.ocr.confianza_avg and self.ocr.none_low(probs, thresh=self.ocr.none_low_thresh):
+            if avg > self.ocr.confianza_avg:
                 plate = ''.join(plate).replace('_', '')
-                current_time = timer()
-                if plate not in self.processed_predictions or (current_time - self.processed_predictions[plate] > time_plate_no_repite):
-                    self.processed_predictions[plate] = current_time
-                    yield Predict(patente=plate, porcentaje=avg * 100, posicion=(x1, y1, x2, y2))
+                return Predict(patente=plate, porcentaje=avg * 100, posicion=(x1, y1, x2, y2))
+
 
     def mostrar_predicts(self, frame: np.ndarray):
         total_time = 0

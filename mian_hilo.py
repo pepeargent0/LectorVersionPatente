@@ -9,6 +9,8 @@ import numpy as np
 import paho.mqtt.client as mqtt
 import logging
 
+from sqlalchemy import func
+
 from camara.rtsp import RTSPClient
 from config.config import get_model_config, get_directory_config, get_database_url, get_mqtt_config
 from database.database import get_session, init_sin_tunel_database
@@ -54,10 +56,12 @@ def on_connect(client, userdata, flags, rc):
 def zoom_image(image, scale_factor):
     return cv2.resize(image, None, fx=scale_factor, fy=scale_factor)
 
+
 def resize_frame(frame, target_size):
     # Redimensionar la imagen al tamaño objetivo
     resized_frame = cv2.resize(frame, target_size)
     return resized_frame
+
 
 def recortar_patente(frame, x1, y1, x2, y2):
     return frame[y1:y2, x1:x2]
@@ -65,12 +69,14 @@ def recortar_patente(frame, x1, y1, x2, y2):
 
 def process_frame(frame):
     directory_storage = get_directory_config()
-
-    predicts = list(alpr.show_predicts(frame))
-
-    if not predicts:
-        return
+    predicts = alpr.show_predicts(frame)
     habilitado = 1
+    aproximado = {
+        'id': '',
+        'patente': '',
+        'distancia_jaro': -1
+    }
+
     resultados = session.query(TransporteVehiculos).filter(TransporteVehiculos.habilitado == habilitado).all()
     session.commit()
     aproximado = {
@@ -78,20 +84,20 @@ def process_frame(frame):
         'patente': '',
         'distancia_jaro': -1
     }
-    for predict in predicts:
-        distancias_jaro = [jaro.jaro_winkler_metric(resultado.patente, predict.patente) for resultado in resultados]
-        if len(distancias_jaro) > 0:
-            max_distancia_jaro = max(distancias_jaro)
-            if max_distancia_jaro > aproximado['distancia_jaro']:
-                index_max_distancia_jaro = distancias_jaro.index(max_distancia_jaro)
-                resultado_seleccionado = resultados[index_max_distancia_jaro]
-                aproximado = {
-                    'id': resultado_seleccionado.id,
-                    'patente': resultado_seleccionado.patente,
-                    'distancia_jaro': max_distancia_jaro
-                }
+
+    distancias_jaro = [jaro.jaro_winkler_metric(resultado.patente, predicts.patente) for resultado in resultados]
+    if len(distancias_jaro) > 0:
+        max_distancia_jaro = max(distancias_jaro)
+        if max_distancia_jaro > aproximado['distancia_jaro']:
+            index_max_distancia_jaro = distancias_jaro.index(max_distancia_jaro)
+            resultado_seleccionado = resultados[index_max_distancia_jaro]
+            aproximado = {
+                'id': resultado_seleccionado.id,
+                'patente': resultado_seleccionado.patente,
+                'distancia_jaro': max_distancia_jaro
+            }
     if aproximado['distancia_jaro'] < 0.70:
-        print('Patente No Habilitada: ', predict.patente)
+        print('Patente No Habilitada: ', predicts.patente)
     else:
         transport_vehiculos = session.query(TransporteVehiculos).filter(
             TransporteVehiculos.id == aproximado['id']).first()
@@ -109,7 +115,7 @@ def process_frame(frame):
             )
             session.add(egreso_veiculo)
             session.commit()
-            print('Patente Insertado: ', aproximado['patente'], ' Patente Detectada: ', predict.patente)
+            print('Patente Insertado: ', aproximado['patente'], ' Patente Detectada: ', predicts.patente)
             transporte = session.query(TransporteVehiculos).filter(
                 TransporteVehiculos.patente == aproximado['patente']).first()
             transporte.habilitado = False
@@ -117,13 +123,12 @@ def process_frame(frame):
             now = datetime.now()
             timestamp = now.strftime("%Y-%m-%d_%H-%M-%S-%f")
             imagen_path = os.path.join(directory_storage.destination, f'{timestamp}_patente.jpg')
-            x1, y1, x2, y2 = predicts[0].posicion
+            x1, y1, x2, y2 = predicts.posicion
             plate_region = recortar_patente(frame, x1, y1, x2, y2)
             zoomed_plate_region = zoom_image(plate_region, scale_factor=2.5)
             cv2.imwrite(imagen_path, zoomed_plate_region)
             imagen_path = os.path.join(directory_storage.destination, f'{timestamp}.jpg')
             cv2.imwrite(imagen_path, frame)
-
 
 
 def capture_frames():
@@ -135,17 +140,19 @@ def capture_frames():
             return_value, frame = cap.read()
             if not return_value:
                 break
-            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
             # Guardar la imagen en disco
             directory_storage = get_directory_config()
-            now = datetime.now()
-            timestamp = now.strftime("%Y-%m-%d_%H-%M-%S-%f")
-            frame_path = os.path.join(directory_storage.destination, f'{timestamp}.jpg')
-            cv2.imwrite(frame_path, frame)
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
-            # Procesar el frame guardado
-            process_frame(frame_path)
+            # Convertir el frame a un arreglo de NumPy
+            frame_np = np.array(frame)
+
+            # Redimensionar el frame
+            target_size = (848, 480)
+            resized_frame = cv2.resize(frame_np, target_size)
+            # Procesar el frame redimensionado
+            process_frame(frame)
 
             frame_count += 1
 
@@ -163,7 +170,7 @@ def capture_frames():
 
 alpr = ALPR()
 configure = get_model_config()
-#video_path = '/home/pepe/Descargas/test11.mp4'
+# video_path = '/home/pepe/Descargas/test11.mp4'
 video_path = RTSPClient().get_connection()
 
 logger.critical(f'Se va analizar la fuente: {video_path}')
