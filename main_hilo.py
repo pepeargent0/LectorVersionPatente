@@ -1,15 +1,13 @@
-import time
-import jaro
-from datetime import datetime
-import threading
-import cv2
+import logging
 import os
+import threading
+import time
+from datetime import datetime
 
+import cv2
+import jaro
 import numpy as np
 import paho.mqtt.client as mqtt
-import logging
-
-from sqlalchemy import func
 
 from camara.rtsp import RTSPClient
 from config.config import get_model_config, get_directory_config, get_database_url, get_mqtt_config
@@ -70,16 +68,10 @@ def recortar_patente(frame, x1, y1, x2, y2):
 def process_frame(frame):
     directory_storage = get_directory_config()
     predicts = alpr.show_predicts(frame)
-    #print(predicts)
+
     if not predicts:
         return
     habilitado = 1
-    aproximado = {
-        'id': '',
-        'patente': '',
-        'distancia_jaro': -1
-    }
-
     resultados = session.query(TransporteVehiculos).filter(TransporteVehiculos.habilitado == habilitado).all()
     session.commit()
     aproximado = {
@@ -87,7 +79,6 @@ def process_frame(frame):
         'patente': '',
         'distancia_jaro': -1
     }
-
     distancias_jaro = [jaro.jaro_winkler_metric(resultado.patente, predicts.patente) for resultado in resultados]
     if len(distancias_jaro) > 0:
         max_distancia_jaro = max(distancias_jaro)
@@ -144,8 +135,6 @@ def capture_frames():
             if not return_value:
                 break
 
-            # Guardar la imagen en disco
-            directory_storage = get_directory_config()
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
             # Convertir el frame a un arreglo de NumPy
@@ -188,8 +177,8 @@ def capture_frames():
 
 alpr = ALPR()
 configure = get_model_config()
-video_path = '/home/pepe/Descargas/test11.mp4'
-#video_path = RTSPClient().get_connection()
+# video_path = '/home/pepe/Descargas/test11.mp4'
+video_path = RTSPClient().get_connection()
 
 logger.critical(f'Se va analizar la fuente: {video_path}')
 intervalo_reconocimiento = configure.frecuencia_inferencia
