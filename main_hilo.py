@@ -61,6 +61,20 @@ def resize_frame(frame, target_size):
     return resized_frame
 
 
+def crop_frame(frame, porcentaje_recorte):
+    # Calcular los márgenes recortados
+    margen_recorte_ancho = int(frame.shape[1] * porcentaje_recorte)
+    margen_recorte_alto = int(frame.shape[0] * porcentaje_recorte)
+    # Definir las coordenadas de recorte
+    x1 = margen_recorte_ancho
+    y1 = margen_recorte_alto
+    x2 = frame.shape[1] - margen_recorte_ancho
+    y2 = frame.shape[0] - margen_recorte_alto
+    # Recortar la región de interés dentro de los márgenes recortados
+    cropped_frame = frame[y1:y2, x1:x2]
+    return cropped_frame
+
+
 def recortar_patente(frame, x1, y1, x2, y2):
     return frame[y1:y2, x1:x2]
 
@@ -134,35 +148,26 @@ def capture_frames():
             return_value, frame = cap.read()
             if not return_value:
                 break
-
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-
             # Convertir el frame a un arreglo de NumPy
             frame_np = np.array(frame)
-
             # Redimensionar el frame
             target_size = (848, 480)
             resized_frame = cv2.resize(frame_np, target_size)
-
             # Calcular los márgenes recortados
             porcentaje_recorte = 0.10  # Porcentaje de recorte deseado
             margen_recorte_ancho = int(target_size[0] * porcentaje_recorte)
             margen_recorte_alto = int(target_size[1] * porcentaje_recorte)
-
             # Definir las coordenadas de recorte
             x1 = margen_recorte_ancho
             y1 = margen_recorte_alto
             x2 = target_size[0] - margen_recorte_ancho
             y2 = target_size[1] - margen_recorte_alto
-
             # Recortar la región de interés dentro de los márgenes recortados
             roi = resized_frame[y1:y2, x1:x2]
-
             # Procesar el frame recortado
             process_frame(roi)
-
             frame_count += 1
-
             # Verificar si han pasado 10 segundos sin recibir tramas
             current_time = time.time()
             elapsed_time = current_time - last_frame_time
@@ -170,6 +175,10 @@ def capture_frames():
                 print("Han pasado 10 segundos sin recibir tramas. Solicitando nueva transmisión...")
                 break  # Romper el bucle y solicitar una nueva transmisión
             last_frame_time = current_time
+    except cv2.error as e:
+        logger.error(f"Error al abrir el video: {e}")
+    except Exception as e:
+        logger.error(f"Ocurrió un error inesperado: {e}")
     finally:
         cap.release()
         cv2.destroyAllWindows()
@@ -177,7 +186,7 @@ def capture_frames():
 
 alpr = ALPR()
 configure = get_model_config()
-# video_path = '/home/pepe/Descargas/test11.mp4'
+#video_path = '/home/pepe/Descargas/output.mp4'
 video_path = RTSPClient().get_connection()
 
 logger.critical(f'Se va analizar la fuente: {video_path}')
