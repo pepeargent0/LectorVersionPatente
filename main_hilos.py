@@ -14,6 +14,7 @@ from config.config import get_model_config, get_directory_config, get_database_u
 from database.database import get_session, init_sin_tunel_database
 from database.empresas import Empresas
 from database.transporte_egreso import TransporteEgreso
+from database.habilitar_transporte_egreso import  HabilitarTransporteEgreso
 from database.transporte_vehiculos import TransporteVehiculos
 from patentes.alpr import ALPR
 
@@ -85,8 +86,7 @@ def process_frame(frame):
 
     if not predicts:
         return
-    habilitado = 1
-    resultados = session.query(TransporteVehiculos).filter(TransporteVehiculos.habilitado == habilitado).all()
+    resultados = session.query(HabilitarTransporteEgreso).all()
     session.commit()
     aproximado = {
         'id': '',
@@ -107,10 +107,12 @@ def process_frame(frame):
     if aproximado['distancia_jaro'] < 0.70:
         print('Patente No Habilitada: ', predicts.patente)
     else:
-        transport_vehiculos = session.query(TransporteVehiculos).filter(
-            TransporteVehiculos.id == aproximado['id']).first()
+        transport_vehiculos = session.query(HabilitarTransporteEgreso).filter(
+            HabilitarTransporteEgreso.id == aproximado['id']).first()
+
+        print('patente',aproximado['patente'])
         if transport_vehiculos:
-            empresa = session.query(Empresas).filter(Empresas.id == transport_vehiculos.empresaId).first()
+            empresa = session.query(Empresas).filter(Empresas.id == transport_vehiculos.empresa_id).first()
             egreso_veiculo = TransporteEgreso(
                 empresa_id=empresa.id,
                 empresa=empresa.razonSocial,
@@ -124,9 +126,7 @@ def process_frame(frame):
             session.add(egreso_veiculo)
             session.commit()
             print('Patente Insertado: ', aproximado['patente'], ' Patente Detectada: ', predicts.patente)
-            transporte = session.query(TransporteVehiculos).filter(
-                TransporteVehiculos.patente == aproximado['patente']).first()
-            transporte.habilitado = False
+            session.delete(transport_vehiculos)
             session.commit()
             now = datetime.now()
             timestamp = now.strftime("%Y-%m-%d_%H-%M-%S-%f")
@@ -155,7 +155,8 @@ def capture_frames():
             target_size = (848, 480)
             resized_frame = cv2.resize(frame_np, target_size)
             # Calcular los márgenes recortados
-            porcentaje_recorte = 0.10  # Porcentaje de recorte deseado
+            # porcentaje_recorte = 0.10  # Porcentaje de recorte deseado
+            porcentaje_recorte = 0.10
             margen_recorte_ancho = int(target_size[0] * porcentaje_recorte)
             margen_recorte_alto = int(target_size[1] * porcentaje_recorte)
             # Definir las coordenadas de recorte
@@ -171,7 +172,7 @@ def capture_frames():
             # Verificar si han pasado 10 segundos sin recibir tramas
             current_time = time.time()
             elapsed_time = current_time - last_frame_time
-            if elapsed_time > 10:
+            if elapsed_time > 6:
                 print("Han pasado 10 segundos sin recibir tramas. Solicitando nueva transmisión...")
                 break  # Romper el bucle y solicitar una nueva transmisión
             last_frame_time = current_time
@@ -186,8 +187,8 @@ def capture_frames():
 
 alpr = ALPR()
 configure = get_model_config()
-#video_path = '/home/pepe/Descargas/output.mp4'
-video_path = RTSPClient().get_connection()
+video_path = '/home/pepe/Descargas/test_l4.mp4'
+#video_path = RTSPClient().get_connection()
 
 logger.critical(f'Se va analizar la fuente: {video_path}')
 intervalo_reconocimiento = configure.frecuencia_inferencia
