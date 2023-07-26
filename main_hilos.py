@@ -14,7 +14,7 @@ from config.config import get_model_config, get_directory_config, get_database_u
 from database.database import get_session, init_sin_tunel_database
 from database.empresas import Empresas
 from database.transporte_egreso import TransporteEgreso
-from database.habilitar_transporte_egreso import  HabilitarTransporteEgreso
+from database.habilitar_transporte_egreso import HabilitarTransporteEgreso
 from database.transporte_vehiculos import TransporteVehiculos
 from patentes.alpr import ALPR
 
@@ -83,17 +83,21 @@ def recortar_patente(frame, x1, y1, x2, y2):
 def process_frame(frame):
     directory_storage = get_directory_config()
     predicts = alpr.show_predicts(frame)
-
     if not predicts:
         return
-    resultados = session.query(HabilitarTransporteEgreso).all()
-    session.commit()
+    try:
+        resultados = session.query(HabilitarTransporteEgreso).all()
+        session.commit()
+    except Exception as e:
+        print(f"Error al ejecutar la consulta: {e}")
     aproximado = {
         'id': '',
         'patente': '',
         'distancia_jaro': -1
     }
+
     distancias_jaro = [jaro.jaro_winkler_metric(resultado.patente, predicts.patente) for resultado in resultados]
+    print(distancias_jaro)
     if len(distancias_jaro) > 0:
         max_distancia_jaro = max(distancias_jaro)
         if max_distancia_jaro > aproximado['distancia_jaro']:
@@ -111,31 +115,43 @@ def process_frame(frame):
             HabilitarTransporteEgreso.id == aproximado['id']).first()
 
         print('patente',aproximado['patente'])
+        print(transport_vehiculos)
         if transport_vehiculos:
-            empresa = session.query(Empresas).filter(Empresas.id == transport_vehiculos.empresa_id).first()
-            egreso_veiculo = TransporteEgreso(
-                empresa_id=empresa.id,
-                empresa=empresa.razonSocial,
-                patente=aproximado['patente'],
-                procesado=True,
-                fecha_salida=datetime.now().date(),
-                hora_salida=datetime.now().time(),
-                lectura_forzada=False,
-                motivo=''
-            )
-            session.add(egreso_veiculo)
-            session.commit()
+            print(transport_vehiculos.interno_id)
+            # empresa = session.query(Empresas).filter(Empresas.id == transport_vehiculos.empresa_id).first()
+
+            try:
+                egreso_veiculo = TransporteEgreso(
+                    # empresa_id=empresa.id,
+                    # empresa=empresa.razonSocial,
+                    patente=aproximado['patente'],
+                    procesado=True,
+                    fecha_salida=datetime.now().date(),
+                    hora_salida=datetime.now().time(),
+                    lectura_forzada=False,
+                    motivo='',
+                    interno_id=transport_vehiculos.interno_id
+                )
+                session.add(egreso_veiculo)
+                session.commit()
+            except Exception as e:
+                print(f"Error al ejecutar la consulta: {e}")
             print('Patente Insertado: ', aproximado['patente'], ' Patente Detectada: ', predicts.patente)
             session.delete(transport_vehiculos)
             session.commit()
             now = datetime.now()
             timestamp = now.strftime("%Y-%m-%d_%H-%M-%S-%f")
-            imagen_path = os.path.join(directory_storage.destination, f'{timestamp}_patente.jpg')
+            base_directory = directory_storage.destination + '/' + str(transport_vehiculos.interno_id)
+            if not os.path.exists(base_directory):
+                os.mkdir(base_directory)
+            else:
+                base_directory = directory_storage.destination + '/' + str(transport_vehiculos.interno_id) + '/' + str(transport_vehiculos.interno_id)
+            imagen_path = os.path.join(base_directory, f'{timestamp}_patente.jpg')
             x1, y1, x2, y2 = predicts.posicion
             plate_region = recortar_patente(frame, x1, y1, x2, y2)
             zoomed_plate_region = zoom_image(plate_region, scale_factor=2.5)
             cv2.imwrite(imagen_path, zoomed_plate_region)
-            imagen_path = os.path.join(directory_storage.destination, f'{timestamp}.jpg')
+            imagen_path = os.path.join(base_directory, f'{timestamp}.jpg')
             cv2.imwrite(imagen_path, frame)
 
 
