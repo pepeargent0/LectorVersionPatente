@@ -203,8 +203,8 @@ def capture_frames():
 
 alpr = ALPR()
 configure = get_model_config()
-video_path = '/home/pepe/Descargas/test_l4.mp4'
-#video_path = RTSPClient().get_connection()
+#video_path = '/home/pepe/Descargas/test_l4.mp4'
+video_path = RTSPClient().get_connection()
 
 logger.critical(f'Se va analizar la fuente: {video_path}')
 intervalo_reconocimiento = configure.frecuencia_inferencia
