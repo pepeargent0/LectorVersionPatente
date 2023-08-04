@@ -1,5 +1,6 @@
 import logging
 import os
+import subprocess
 import threading
 import time
 from datetime import datetime
@@ -7,15 +8,12 @@ from datetime import datetime
 import cv2
 import jaro
 import numpy as np
-import paho.mqtt.client as mqtt
 
 from camara.rtsp import RTSPClient
-from config.config import get_model_config, get_directory_config, get_database_url, get_mqtt_config
+from config.config import get_model_config, get_directory_config, get_database_url
 from database.database import get_session, init_sin_tunel_database
-from database.empresas import Empresas
 from database.transporte_egreso import TransporteEgreso
 from database.habilitar_transporte_egreso import HabilitarTransporteEgreso
-from database.transporte_vehiculos import TransporteVehiculos
 from patentes.alpr import ALPR
 
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
@@ -27,28 +25,8 @@ logger.setLevel(logging.CRITICAL)
 db_url = get_database_url()
 init_sin_tunel_database(db_url)
 session = get_session()
-username = get_mqtt_config().username
-password = get_mqtt_config().password
-port = int(get_mqtt_config().port)
-broker = get_mqtt_config().broker
-topico_semaforo = get_mqtt_config().semaforo
-topico_camara = get_mqtt_config().camara
-topico_barrera = get_mqtt_config().barrera
 
-client = mqtt.Client()
-
-
-def on_connect(client, userdata, flags, rc):
-    client.publish(topico_semaforo, "#out1-off")
-    client.publish(topico_semaforo, "#out2-on")
-    time.sleep(20)
-    client.publish(topico_barrera, "#out1-pulse")
-    time.sleep(20)
-    client.publish(topico_camara, "#combo-simple")
-    time.sleep(50)
-    client.publish(topico_semaforo, "#out2-off")
-    client.publish(topico_semaforo, "#out1-on")
-
+comando = "/usr/bin/mqtt-client-sec"
 
 
 def zoom_image(image, scale_factor):
@@ -113,12 +91,10 @@ def process_frame(frame):
         transport_vehiculos = session.query(HabilitarTransporteEgreso).filter(
             HabilitarTransporteEgreso.id == aproximado['id']).first()
 
-        print('patente',aproximado['patente'])
+        print('patente', aproximado['patente'])
         print(transport_vehiculos)
         if transport_vehiculos:
             print(transport_vehiculos.interno_id)
-            # empresa = session.query(Empresas).filter(Empresas.id == transport_vehiculos.empresa_id).first()
-
             try:
                 egreso_veiculo = TransporteEgreso(
                     patente=aproximado['patente'],
@@ -142,7 +118,8 @@ def process_frame(frame):
             if not os.path.exists(base_directory):
                 os.mkdir(base_directory)
             else:
-                base_directory = directory_storage.destination + '/' + str(transport_vehiculos.interno_id) + '/' + str(transport_vehiculos.interno_id)
+                base_directory = directory_storage.destination + '/' + str(transport_vehiculos.interno_id) + '/' + str(
+                    transport_vehiculos.interno_id)
             imagen_path = os.path.join(base_directory, f'{timestamp}_patente.jpg')
             x1, y1, x2, y2 = predicts.posicion
             plate_region = recortar_patente(frame, x1, y1, x2, y2)
@@ -150,6 +127,11 @@ def process_frame(frame):
             cv2.imwrite(imagen_path, zoomed_plate_region)
             imagen_path = os.path.join(base_directory, f'{timestamp}.jpg')
             cv2.imwrite(imagen_path, frame)
+            try:
+                subprocess.check_output(comando, shell=True, text=True)
+            except subprocess.CalledProcessError as e:
+                print("Error al ejecutar el comando:")
+                print(e)
 
 
 def capture_frames():
@@ -200,7 +182,6 @@ def capture_frames():
 
 alpr = ALPR()
 configure = get_model_config()
-#video_path = '/home/pepe/Descargas/test_l4.mp4'
 video_path = RTSPClient().get_connection()
 
 logger.critical(f'Se va analizar la fuente: {video_path}')
@@ -210,14 +191,4 @@ if not cv2.haveImageReader(video_path):
 
 capture_thread = threading.Thread(target=capture_frames)
 capture_thread.start()
-
-client.on_connect = on_connect
-if username and password:
-    client.username_pw_set(username, password)
-client.connect(broker, port)
-client.loop_start()
-
 capture_thread.join()
-
-client.loop_stop()
-client.disconnect()
