@@ -42,9 +42,9 @@ def on_connect(client, userdata, flags, rc):
     client.publish(topico_semaforo, "#out1-off")
     client.publish(topico_semaforo, "#out2-on")
     client.publish(topico_barrera, "#out1-pulse")
-    time.sleep(2)
+    time.sleep(20)
     client.publish(topico_camara, "#combo-simple")
-    time.sleep(5)
+    time.sleep(50)
     client.publish(topico_semaforo, "#out2-off")
     client.publish(topico_semaforo, "#out1-on")
 
