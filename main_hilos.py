@@ -41,6 +41,7 @@ client = mqtt.Client()
 def on_connect(client, userdata, flags, rc):
     client.publish(topico_semaforo, "#out1-off")
     client.publish(topico_semaforo, "#out2-on")
+    time.sleep(20)
     client.publish(topico_barrera, "#out1-pulse")
     time.sleep(20)
     client.publish(topico_camara, "#combo-simple")
