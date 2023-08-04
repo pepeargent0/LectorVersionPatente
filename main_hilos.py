@@ -42,6 +42,8 @@ def on_connect(client, userdata, flags, rc):
     client.publish(topico_semaforo, "#out1-off")
     client.publish(topico_semaforo, "#out2-on")
     client.publish(topico_barrera, "#out1-pulse")
+    client.publish(topico_barrera, "#combo-simple")
+    """
     client.publish(topico_camara, "#image-simple")
     time.sleep(1)
     client.publish(topico_camara, "#image-simple")
@@ -50,6 +52,7 @@ def on_connect(client, userdata, flags, rc):
     time.sleep(1)
     client.publish(topico_camara, "#video-simple")
     client.publish(topico_semaforo, "#out1-off")
+    """
 
 
 def zoom_image(image, scale_factor):
@@ -122,8 +125,6 @@ def process_frame(frame):
 
             try:
                 egreso_veiculo = TransporteEgreso(
-                    # empresa_id=empresa.id,
-                    # empresa=empresa.razonSocial,
                     patente=aproximado['patente'],
                     procesado=True,
                     fecha_salida=datetime.now().date(),
