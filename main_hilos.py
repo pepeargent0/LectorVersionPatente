@@ -42,17 +42,12 @@ def on_connect(client, userdata, flags, rc):
     client.publish(topico_semaforo, "#out1-off")
     client.publish(topico_semaforo, "#out2-on")
     client.publish(topico_barrera, "#out1-pulse")
-    client.publish(topico_barrera, "#combo-simple")
-    """
-    client.publish(topico_camara, "#image-simple")
-    time.sleep(1)
-    client.publish(topico_camara, "#image-simple")
-    time.sleep(1)
-    client.publish(topico_camara, "#image-simple")
-    time.sleep(1)
-    client.publish(topico_camara, "#video-simple")
-    client.publish(topico_semaforo, "#out1-off")
-    """
+    time.sleep(2)
+    client.publish(topico_camara, "#combo-simple")
+    time.sleep(5)
+    client.publish(topico_semaforo, "#out2-off")
+    client.publish(topico_semaforo, "#out1-on")
+
 
 
 def zoom_image(image, scale_factor):
