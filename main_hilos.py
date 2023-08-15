@@ -12,6 +12,7 @@ import numpy as np
 from camara.rtsp import RTSPClient
 from config.config import get_model_config, get_directory_config, get_database_url
 from database.database import get_session, init_sin_tunel_database
+from database.lectura_real import LecturaReal
 from database.transporte_egreso import TransporteEgreso
 from database.habilitar_transporte_egreso import HabilitarTransporteEgreso
 from patentes.alpr import ALPR
@@ -25,8 +26,6 @@ logger.setLevel(logging.CRITICAL)
 db_url = get_database_url()
 init_sin_tunel_database(db_url)
 session = get_session()
-
-comando = "/usr/bin/mqtt-client-sec"
 
 
 def zoom_image(image, scale_factor):
@@ -74,7 +73,7 @@ def process_frame(frame):
     }
 
     distancias_jaro = [jaro.jaro_winkler_metric(resultado.patente, predicts.patente) for resultado in resultados]
-    print(distancias_jaro)
+
     if len(distancias_jaro) > 0:
         max_distancia_jaro = max(distancias_jaro)
         if max_distancia_jaro > aproximado['distancia_jaro']:
@@ -86,15 +85,16 @@ def process_frame(frame):
                 'distancia_jaro': max_distancia_jaro
             }
     if aproximado['distancia_jaro'] < 0.70:
-        print('Patente No Habilitada: ', predicts.patente)
+        mensaje = 'Patente No Habilitada: ' + str(predicts.patente)
+        log_lectura = LecturaReal(
+            info=mensaje,
+        )
+        session.add(log_lectura)
+        session.commit()
     else:
         transport_vehiculos = session.query(HabilitarTransporteEgreso).filter(
             HabilitarTransporteEgreso.id == aproximado['id']).first()
-
-        print('patente', aproximado['patente'])
-        print(transport_vehiculos)
         if transport_vehiculos:
-            print(transport_vehiculos.interno_id)
             try:
                 egreso_veiculo = TransporteEgreso(
                     patente=aproximado['patente'],
@@ -109,7 +109,13 @@ def process_frame(frame):
                 session.commit()
             except Exception as e:
                 print(f"Error al ejecutar la consulta: {e}")
-            print('Patente Insertado: ', aproximado['patente'], ' Patente Detectada: ', predicts.patente)
+
+            mensaje = 'Patente Detectada: ' + str(aproximado['patente'])
+            log_lectura = LecturaReal(
+                info=mensaje,
+            )
+            session.add(log_lectura)
+            session.commit()
             session.delete(transport_vehiculos)
             session.commit()
             now = datetime.now()
@@ -128,9 +134,10 @@ def process_frame(frame):
             imagen_path = os.path.join(base_directory, f'{timestamp}.jpg')
             cv2.imwrite(imagen_path, frame)
             try:
+                # comando MODO CHAPA
+                comando = ["/usr/bin/mqtt-client-sec", "lector", aproximado['patente']]
                 subprocess.check_output(comando, shell=True, text=True)
             except subprocess.CalledProcessError as e:
-                print("Error al ejecutar el comando:")
                 print(e)
 
 
