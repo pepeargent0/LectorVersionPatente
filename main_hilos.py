@@ -136,7 +136,7 @@ def process_frame(frame):
             try:
                 # comando MODO CHAPA
                 comando = ["/usr/bin/mqtt-client-sec", "lector", aproximado['patente']]
-                subprocess.check_output(comando, shell=True, text=True)
+                subprocess.check_output(comando, text=True)
             except subprocess.CalledProcessError as e:
                 print(e)
 
