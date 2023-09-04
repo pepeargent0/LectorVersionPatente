@@ -3,7 +3,7 @@ import os
 import subprocess
 import threading
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import cv2
 import jaro
@@ -62,7 +62,7 @@ def process_frame(frame):
     if not predicts:
         return
     try:
-        resultados = session.query(HabilitarTransporteEgreso).all()
+        resultados = session.query(HabilitarTransporteEgreso).filter(HabilitarTransporteEgreso.habilitado == 1)
         session.commit()
     except Exception as e:
         print(f"Error al ejecutar la consulta: {e}")
@@ -95,50 +95,70 @@ def process_frame(frame):
         transport_vehiculos = session.query(HabilitarTransporteEgreso).filter(
             HabilitarTransporteEgreso.id == aproximado['id']).first()
         if transport_vehiculos:
-            try:
-                egreso_veiculo = TransporteEgreso(
-                    patente=aproximado['patente'],
-                    procesado=True,
-                    fecha_salida=datetime.now().date(),
-                    hora_salida=datetime.now().time(),
-                    lectura_forzada=False,
-                    motivo='',
-                    interno_id=transport_vehiculos.interno_id
-                )
-                session.add(egreso_veiculo)
-                session.commit()
-            except Exception as e:
-                print(f"Error al ejecutar la consulta: {e}")
+            fecha_actual = datetime.now().date()
+            hora_actual = datetime.now().time()
 
-            mensaje = 'Patente Detectada: ' + str(aproximado['patente'])
-            log_lectura = LecturaReal(
-                info=mensaje,
-            )
-            session.add(log_lectura)
-            session.commit()
-            session.delete(transport_vehiculos)
-            session.commit()
-            now = datetime.now()
-            timestamp = now.strftime("%Y-%m-%d_%H-%M-%S-%f")
-            base_directory = directory_storage.destination + '/' + str(transport_vehiculos.interno_id)
-            if not os.path.exists(base_directory):
-                os.mkdir(base_directory)
+            diferencia = datetime.combine(
+                fecha_actual,
+                hora_actual
+            ) - datetime.combine(transport_vehiculos.fecha, transport_vehiculos.hora)
+            if diferencia < timedelta(minutes=360):
+                try:
+                    egreso_veiculo = TransporteEgreso(
+                        patente=aproximado['patente'],
+                        procesado=True,
+                        fecha_salida=datetime.now().date(),
+                        hora_salida=datetime.now().time(),
+                        lectura_forzada=False,
+                        motivo='',
+                        interno_id=transport_vehiculos.interno_id
+                    )
+                    session.add(egreso_veiculo)
+                    session.commit()
+                    mensaje = 'Patente Detectada: ' + str(aproximado['patente'])
+                    log_lectura = LecturaReal(
+                        info=mensaje,
+                    )
+                    session.add(log_lectura)
+                    session.commit()
+                    now = datetime.now()
+                    timestamp = now.strftime("%Y-%m-%d_%H-%M-%S-%f")
+                    base_directory = directory_storage.destination + '/' + str(transport_vehiculos.interno_id)
+                    if not os.path.exists(base_directory):
+                        os.mkdir(base_directory)
+                    else:
+                        base_directory = directory_storage.destination + '/' + str(
+                            transport_vehiculos.interno_id) + '/' + str(
+                            transport_vehiculos.interno_id)
+                    imagen_path = os.path.join(base_directory, f'{timestamp}_patente.jpg')
+                    x1, y1, x2, y2 = predicts.posicion
+                    plate_region = recortar_patente(frame, x1, y1, x2, y2)
+                    zoomed_plate_region = zoom_image(plate_region, scale_factor=2.5)
+                    cv2.imwrite(imagen_path, zoomed_plate_region)
+                    imagen_path = os.path.join(base_directory, f'{timestamp}.jpg')
+                    cv2.imwrite(imagen_path, frame)
+                    try:
+                        # comando MODO CHAPA
+                        comando = ["/usr/bin/mqtt-client-sec", "lector", aproximado['patente']]
+                        subprocess.check_output(comando, text=True)
+                    except subprocess.CalledProcessError as e:
+                        print(e)
+                    transport_vehiculos.habilitado = 0
+                    transport_vehiculos.interno_id = ''
+                    session.commit()
+                except Exception as e:
+                    print(f"Error al ejecutar la consulta: {e}")
             else:
-                base_directory = directory_storage.destination + '/' + str(transport_vehiculos.interno_id) + '/' + str(
-                    transport_vehiculos.interno_id)
-            imagen_path = os.path.join(base_directory, f'{timestamp}_patente.jpg')
-            x1, y1, x2, y2 = predicts.posicion
-            plate_region = recortar_patente(frame, x1, y1, x2, y2)
-            zoomed_plate_region = zoom_image(plate_region, scale_factor=2.5)
-            cv2.imwrite(imagen_path, zoomed_plate_region)
-            imagen_path = os.path.join(base_directory, f'{timestamp}.jpg')
-            cv2.imwrite(imagen_path, frame)
-            try:
-                # comando MODO CHAPA
-                comando = ["/usr/bin/mqtt-client-sec", "lector", aproximado['patente']]
-                subprocess.check_output(comando, text=True)
-            except subprocess.CalledProcessError as e:
-                print(e)
+                transport_vehiculos.habilitado = 2
+                session.commit()
+            """
+            
+
+            
+            # session.delete(transport_vehiculos)
+            """
+
+
 
 
 def capture_frames():
