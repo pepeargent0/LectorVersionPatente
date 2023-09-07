@@ -10,4 +10,5 @@ class HabilitarTransporteEgreso(Base):
     patente = Column(String(255), nullable=False)
     fecha = Column(Date)
     hora = Column(Time)
+    habilitado = Column(Integer)
     interno_id = Column(String(255), nullable=False)
