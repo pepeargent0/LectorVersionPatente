@@ -102,7 +102,8 @@ def process_frame(frame):
                 fecha_actual,
                 hora_actual
             ) - datetime.combine(transport_vehiculos.fecha, transport_vehiculos.hora)
-            if diferencia < timedelta(minutes=360):
+            # if diferencia < timedelta(minutes=360):
+            if diferencia < timedelta(minutes=120):
                 try:
                     egreso_veiculo = TransporteEgreso(
                         patente=aproximado['patente'],
@@ -137,26 +138,54 @@ def process_frame(frame):
                     cv2.imwrite(imagen_path, zoomed_plate_region)
                     imagen_path = os.path.join(base_directory, f'{timestamp}.jpg')
                     cv2.imwrite(imagen_path, frame)
+                    """
                     try:
                         # comando MODO CHAPA
                         comando = ["/usr/bin/mqtt-client-sec", "lector", aproximado['patente']]
+                        
                         subprocess.check_output(comando, text=True)
                     except subprocess.CalledProcessError as e:
                         print(e)
                     transport_vehiculos.habilitado = 0
                     transport_vehiculos.interno_id = ''
+                    """
+                    comando = ["/usr/bin/mqtt-client-sec", "lector", aproximado['patente']]
+                    try:
+                        proceso = subprocess.Popen(comando, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
+                        # Lee la salida estándar en tiempo real
+                        for linea in proceso.stdout:
+                            print("Salida estándar:", linea, end='')  # Imprime la línea sin salto de línea
+
+                        # Lee la salida de error en tiempo real
+                        for linea in proceso.stderr:
+                            print("Salida de error:", linea, end='')  # Imprime la línea sin salto de línea
+
+                        proceso.wait()
+
+                        if proceso.returncode == 0:
+                            print("El comando se ejecutó con éxito.")
+                        else:
+                            print(f"El comando falló con código de salida {proceso.returncode}.")
+                    except subprocess.CalledProcessError as e:
+                        print("Error al ejecutar el comando:")
+                        print(e)
+                    except Exception as e:
+                        print("Ocurrió un error:")
+                        print(e)
+                    transport_vehiculos.interno_id = ''
+                    transport_vehiculos.habilitado = 0
                     session.commit()
                 except Exception as e:
                     print(f"Error al ejecutar la consulta: {e}")
-            else:
+            elif (diferencia > timedelta(minutes=120)) and (diferencia < timedelta(minutes=300)):
+                transport_vehiculos.interno_id = transport_vehiculos.interno_id
                 transport_vehiculos.habilitado = 2
                 session.commit()
-            """
-            
-
-            
-            # session.delete(transport_vehiculos)
-            """
+            else:
+                transport_vehiculos.interno_id = ''
+                transport_vehiculos.habilitado = 0
+                session.commit()
 
 
 
@@ -210,7 +239,7 @@ def capture_frames():
 alpr = ALPR()
 configure = get_model_config()
 video_path = RTSPClient().get_connection()
-
+# video_path = '/home/pepe/Descargas/test_l2.mp4'
 logger.critical(f'Se va analizar la fuente: {video_path}')
 intervalo_reconocimiento = configure.frecuencia_inferencia
 if not cv2.haveImageReader(video_path):
