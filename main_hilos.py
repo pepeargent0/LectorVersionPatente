@@ -179,9 +179,6 @@ def process_frame(frame):
                     print(f"Error al ejecutar la consulta: {e}")
 
 
-
-
-
 def capture_frames():
     cap = cv2.VideoCapture(video_path)
     frame_count = 0
