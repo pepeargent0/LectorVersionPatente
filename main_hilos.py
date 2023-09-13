@@ -102,7 +102,6 @@ def process_frame(frame):
                 fecha_actual,
                 hora_actual
             ) - datetime.combine(transport_vehiculos.fecha, transport_vehiculos.hora)
-            # if diferencia < timedelta(minutes=360):
             if diferencia < timedelta(minutes=120):
                 try:
                     egreso_veiculo = TransporteEgreso(
@@ -178,14 +177,7 @@ def process_frame(frame):
                     session.commit()
                 except Exception as e:
                     print(f"Error al ejecutar la consulta: {e}")
-            elif (diferencia > timedelta(minutes=120)) and (diferencia < timedelta(minutes=300)):
-                transport_vehiculos.interno_id = transport_vehiculos.interno_id
-                transport_vehiculos.habilitado = 2
-                session.commit()
-            else:
-                transport_vehiculos.interno_id = ''
-                transport_vehiculos.habilitado = 0
-                session.commit()
+
 
 
 
@@ -239,7 +231,6 @@ def capture_frames():
 alpr = ALPR()
 configure = get_model_config()
 video_path = RTSPClient().get_connection()
-# video_path = '/home/pepe/Descargas/test_l2.mp4'
 logger.critical(f'Se va analizar la fuente: {video_path}')
 intervalo_reconocimiento = configure.frecuencia_inferencia
 if not cv2.haveImageReader(video_path):
